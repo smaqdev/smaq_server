@@ -147,7 +147,7 @@ def run_servers():
     
     # Start Flask HTTP server
     try:
-        app.run(host='127.0.0.1', port=5000, use_reloader=False)
+        app.run(host='0.0.0.0', port=5000, use_reloader=False)
     except KeyboardInterrupt:
         print("Server is shutting down...")
         shutdown_event.set()
