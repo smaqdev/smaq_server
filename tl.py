@@ -1,5 +1,6 @@
 import subprocess
 import os
+import sys
 
 def create_video_from_images(image_folder, output_video_path, fps=60):
     # 이미지 파일 목록 가져오기
@@ -8,6 +9,10 @@ def create_video_from_images(image_folder, output_video_path, fps=60):
     # 이미지 파일을 이름 기준으로 정렬 (이미 정렬된 경우 이 단계는 생략 가능)
     image_files.sort()
     
+    if not image_files:
+        print(f"이미지 파일이 {image_folder}에 없습니다.")
+        return
+
     # 정렬된 이미지 파일 목록을 파일에 기록
     list_file_path = 'image_list.txt'
     with open(list_file_path, 'w') as list_file:
@@ -37,7 +42,12 @@ def create_video_from_images(image_folder, output_video_path, fps=60):
     # 임시 목록 파일 삭제
     os.remove(list_file_path)
 
-image_folder = './imgs'
-output_video_path = './timelapse_video.mp4'
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        print("사용법: python tl.py <image_folder> <output_video_path>")
+        sys.exit(1)
+    
+    image_folder = sys.argv[1]
+    output_video_path = sys.argv[2]
 
-create_video_from_images(image_folder, output_video_path)
+    create_video_from_images(image_folder, output_video_path)

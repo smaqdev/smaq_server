@@ -3,30 +3,33 @@ import sys
 import threading
 import asyncio
 import subprocess
-from flask import Flask, Response, send_file
+from flask import Flask, Response, send_file, jsonify, request
 from flask_cors import CORS
 import websockets
 import io
 from PIL import Image, ImageDraw, ImageFont
 import os
 import time
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS
 
-# Variable for storing the latest JPEG frame
-latest_frame = None
+# Base directory for saving images and videos
+base_dir = os.path.join(os.getcwd(), 'sessions')
+os.makedirs(base_dir, exist_ok=True)  # Ensure the base directory exists
 
-# Directory for saving images and video
-img_dir = os.path.join(os.getcwd(), 'imgs')
-os.makedirs(img_dir, exist_ok=True)  # Ensure the directory exists
+# Dictionary to store sessions data
+sessions = {}
 
-# Path for saving the timelapse video
-timelapse_video_path = os.path.join(os.getcwd(), 'timelapse_video.mp4')
-
-# Flag to indicate if video generation is in progress
-video_generation_lock = threading.Lock()
-is_generating_video = False
+class Session:
+    def __init__(self, session_id):
+        self.session_id = session_id
+        self.latest_frame = None
+        self.last_received_time = datetime.now()
+        self.img_dir = os.path.join(base_dir, session_id, 'imgs')
+        os.makedirs(self.img_dir, exist_ok=True)  # Ensure the session's image directory exists
+        self.timelapse_video_path = os.path.join(base_dir, session_id, 'timelapse_video.mp4')
 
 def add_watermark(image_bytes):
     # Load the image from bytes
@@ -53,14 +56,18 @@ def add_watermark(image_bytes):
 
 @app.route('/video_feed.mjpg')
 def video_feed():
+    session_id = request.args.get('session_id')
+    if not session_id:
+        return Response("Session ID is required", status=400)
+
     def generate():
         while True:
-            if latest_frame:
-                # Send JPEG data as raw bytes
+            session = sessions.get(session_id)
+            if session and session.latest_frame:
                 yield (b'--frame\r\n'
                        b'Content-Type:image/jpeg\r\n'
-                       b'Content-Length: ' + f"{len(latest_frame)}".encode() + b'\r\n'
-                       b'\r\n' + latest_frame + b'\r\n')
+                       b'Content-Length: ' + f"{len(session.latest_frame)}".encode() + b'\r\n'
+                       b'\r\n' + session.latest_frame + b'\r\n')
             else:
                 time.sleep(0.1)  # Reduce CPU usage when no frame is available
 
@@ -69,9 +76,14 @@ def video_feed():
 
 @app.route('/getthumb')
 def get_thumbnail():
-    if latest_frame:
+    session_id = request.args.get('session_id')
+    if not session_id:
+        return Response("Session ID is required", status=400)
+
+    session = sessions.get(session_id)
+    if session and session.latest_frame:
         # Add watermark to the most recent frame
-        frame = add_watermark(latest_frame)
+        frame = add_watermark(session.latest_frame)
         return Response(frame, mimetype='image/jpeg')
     else:
         # Return a 404 error if no frame is available
@@ -83,39 +95,70 @@ def serve_index():
 
 @app.route('/timelapse_video/update')
 def timelapse_video_update():
-    global is_generating_video
+    session_id = request.args.get('session_id')
+    if not session_id:
+        return Response("Session ID is required", status=400)
+
+    session = sessions.get(session_id)
     
-    with video_generation_lock:
-        if not is_generating_video:
-            is_generating_video = True
-            try:
-                subprocess.run(['python', 'tl.py'], check=True)
-            except subprocess.CalledProcessError as e:
-                is_generating_video = False
-                return Response(f"Error occurred while generating video: {str(e)}", status=500)
-            finally:
-                is_generating_video = False
-                return Response("OK", status=200)
+    if not session:
+        return Response(f"Session {session_id} does not exist", status=404)
+
+    if os.path.exists(session.timelapse_video_path):
+        os.remove(session.timelapse_video_path)
+
+    try:
+        subprocess.run(['python', 'tl.py', session.img_dir, session.timelapse_video_path], check=True)
+    except subprocess.CalledProcessError as e:
+        return Response(f"Error occurred while generating video: {str(e)}", status=500)
+    
+    return Response("OK", status=200)
 
 @app.route('/timelapse_video')
 def timelapse_video():
-    # Check if the timelapse video file exists
-    if os.path.exists(timelapse_video_path):
+    session_id = request.args.get('session_id')
+    if not session_id:
+        return Response("Session ID is required", status=400)
+
+    session = sessions.get(session_id)
+    
+    if not session:
+        return Response(f"Session {session_id} does not exist", status=404)
+
+    if os.path.exists(session.timelapse_video_path):
         return send_file(
-            timelapse_video_path,
+            session.timelapse_video_path,
             mimetype='video/mp4',  # Ensure correct MIME type for MP4
             as_attachment=False
         )
     else:
         return Response("Timelapse video could not be generated", status=500)
 
+@app.route('/activated')
+def get_activated_sessions():
+    active_sessions = []
+    for session_id, session in sessions.items():
+        active_sessions.append({
+            "server_ip": "127.0.0.1:5000",
+            "session_id": session_id
+        })
+    return jsonify(active_sessions)
+
 async def handle_client(websocket, path):
-    global latest_frame, latest_frame_timestamp
-    print("Client connected.")
+    session_id = path.strip('/')
+    print(f"Client connected for session {session_id}.")
     
-    async for message in websocket:
-        latest_frame = message
-        latest_frame_timestamp = time.time()  # Update to the current time
+    if session_id not in sessions:
+        sessions[session_id] = Session(session_id)
+    
+    session = sessions[session_id]
+    
+    try:
+        async for message in websocket:
+            session.latest_frame = message
+            session.last_received_time = datetime.now()
+    finally:
+        print(f"Client disconnected for session {session_id}.")
 
 async def start_websocket_server():
     async with websockets.serve(handle_client, "127.0.0.1", 8765):
@@ -125,14 +168,21 @@ async def start_websocket_server():
 def save_images():
     while not shutdown_event.is_set():
         time.sleep(10)  # Save images every 10 seconds
-        if latest_frame:
-            # Save the most recent frame
-            watermarked_frame = add_watermark(latest_frame)
-            timestamp = time.strftime('%Y%m%d_%H%M%S')
-            file_path = os.path.join(img_dir, f'image_{timestamp}.jpg')
-            with open(file_path, 'wb') as file:
-                file.write(watermarked_frame)
-            print(f"Saved image to {file_path}")
+        for session_id, session in list(sessions.items()):
+            if datetime.now() - session.last_received_time > timedelta(minutes=10):
+                # Remove session if no new frame received in the last 10 minutes
+                del sessions[session_id]
+                print(f"Session {session_id} removed due to inactivity.")
+                continue
+            
+            if session.latest_frame:
+                # Save the most recent frame
+                watermarked_frame = add_watermark(session.latest_frame)
+                timestamp = time.strftime('%Y%m%d_%H%M%S')
+                file_path = os.path.join(session.img_dir, f'image_{timestamp}.jpg')
+                with open(file_path, 'wb') as file:
+                    file.write(watermarked_frame)
+                print(f"Saved image to {file_path} for session {session_id}")
 
 def run_servers():
     loop = asyncio.new_event_loop()
@@ -147,7 +197,7 @@ def run_servers():
     
     # Start Flask HTTP server
     try:
-        app.run(host='0.0.0.0', port=5000, use_reloader=False)
+        app.run(host='127.0.0.1', port=5000, use_reloader=False)
     except KeyboardInterrupt:
         print("Server is shutting down...")
         shutdown_event.set()

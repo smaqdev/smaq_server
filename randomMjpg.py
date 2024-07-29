@@ -47,7 +47,7 @@ async def send_video_frames(ws_uri, video_path):
             video_clip = VideoFileClip(video_path)  # Re-open the video clip
 
 async def main():
-    server_uri = 'ws://127.0.0.1:8765'  # WebSocket 서버 URI
+    server_uri = 'ws://127.0.0.1:8765/testsession'  # WebSocket 서버 URI
     video_path = 'sample.mp4'  # MP4 비디오 파일 경로
     await send_video_frames(server_uri, video_path)
 
