@@ -12,6 +12,10 @@ import os
 import time
 from datetime import datetime, timedelta
 
+IP = "100.74.237.67" # vpn ip
+httpPort = 5000
+socketPort = 8765
+
 app = Flask(__name__)
 CORS(app)  # Enable CORS
 
@@ -139,7 +143,7 @@ def get_activated_sessions():
     active_sessions = []
     for session_id, session in sessions.items():
         active_sessions.append({
-            "server_ip": "127.0.0.1:5000",
+            "server_ip": f"{IP}:{httpPort}",
             "session_id": session_id
         })
     return jsonify(active_sessions)
@@ -161,8 +165,8 @@ async def handle_client(websocket, path):
         print(f"Client disconnected for session {session_id}.")
 
 async def start_websocket_server():
-    async with websockets.serve(handle_client, "127.0.0.1", 8765):
-        print("WebSocket server started on ws://127.0.0.1:8765")
+    async with websockets.serve(handle_client, IP, socketPort):
+        print(f"WebSocket server started on ws://{IP}:{socketPort}")
         await asyncio.Future()  # Run forever
 
 def save_images():
@@ -197,7 +201,7 @@ def run_servers():
     
     # Start Flask HTTP server
     try:
-        app.run(host='127.0.0.1', port=5000, use_reloader=False)
+        app.run(host=IP, port=httpPort, use_reloader=False)
     except KeyboardInterrupt:
         print("Server is shutting down...")
         shutdown_event.set()
