@@ -95,7 +95,7 @@ def get_thumbnail():
 
 @app.route('/')
 def serve_index():
-    return send_file('/index.html')
+    return send_file('index.html')
 
 @app.route('/timelapse_video/update')
 def timelapse_video_update():
