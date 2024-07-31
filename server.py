@@ -97,6 +97,10 @@ def get_thumbnail():
 def serve_index():
     return send_file('index.html')
 
+@app.route('camera')
+def serve_stream():
+    return send_file('camera.html')
+
 @app.route('/timelapse_video/update')
 def timelapse_video_update():
     session_id = request.args.get('session_id')
