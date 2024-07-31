@@ -101,6 +101,10 @@ def serve_index():
 def serve_stream():
     return send_file('camera.html')
 
+@app.route('/timelapse.html')
+def serve_stream():
+    return send_file('timelapse.html')
+
 @app.route('/timelapse_video/update')
 def timelapse_video_update():
     session_id = request.args.get('session_id')
