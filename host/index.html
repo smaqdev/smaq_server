@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Aquarium Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Arial', sans-serif; margin: 0; padding: 0; background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; }
+        header { background-color: #82c1e4; color: white; padding: 20px; width: 100%; text-align: center; font-size: 24px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); position: relative; }
+        .header-icon { position: absolute; right: 20px; top: 20px; cursor: pointer; font-size: 20px; }
+        .section { margin: 20px 0; width: 80%; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; background-color: #659dbd; color: white; padding: 10px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); }
+        .section-header h2 { margin: 0; display: flex; align-items: center; }
+        .section-header h2 i { margin-right: 10px; }
+        .add-card-btn { background-color: transparent; border: none; color: white; cursor: pointer; font-size: 20px; }
+        .add-card-btn:hover { color: #c2e1f0; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin-top: 20px; }
+        .card { background-color: #ffffff; border-radius: 15px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); width: 300px; padding: 20px; text-align: center; transition: transform 0.2s; position: relative; }
+        .card:hover { transform: scale(1.05); }
+        .card h3 { margin: 0; font-size: 20px; color: #333; display: flex; align-items: center; justify-content: center; }
+        .card h3 i { margin-right: 8px; }
+        .card p { font-size: 16px; color: #666; }
+        .button { background-color: #82c1e4; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; width: 100%; }
+        .button i { margin-right: 8px; }
+        .button:hover { background-color: #659dbd; }
+        .thumbnail { width: 100%; height: 180px; border-radius: 10px; margin-top: 10px; position: relative; background-color: #ccc; background-size: cover; background-position: center; }
+        .online-status, .offline-status { position: absolute; top: 10px; left: 10px; padding: 2px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; color: white; z-index: 1; }
+        .online-status { background-color: #e00000; display: none; }
+        .offline-status { background-color: #777676; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); width: 400px; position: relative; }
+        .modal-content input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        .modal-content .button { width: 100%; margin-top: 20px; }
+        .card .edit-btn, .card .delete-btn { position: absolute; top: 10px; background-color: #fff; border: none; cursor: pointer; font-size: 16px; }
+        .card .edit-btn { right: 40px; }
+        .card .delete-btn { right: 10px; }
+    </style>
+    <script>
+        // baseUrl을 localStorage에서 불러옵니다. 없으면 기본값을 사용합니다.
+        let baseUrl = localStorage.getItem('base_url') || 'http://127.0.0.1:5000';
+
+        function openModal(section, action, cardId) {
+            const modal = document.getElementById(`${section}-modal`);
+            modal.style.display = 'flex';
+            if (action === 'edit') {
+                const card = JSON.parse(localStorage.getItem(cardId));
+                document.getElementById(`${section}-name`).value = card.name;
+                document.getElementById(`${section}-ip`).value = card.ip;
+                document.getElementById(`${section}-action`).value = 'edit';
+                document.getElementById(`${section}-cardId`).value = cardId;
+            } else {
+                document.getElementById(`${section}-name`).value = '';
+                document.getElementById(`${section}-ip`).value = '';
+                document.getElementById(`${section}-action`).value = 'add';
+                document.getElementById(`${section}-cardId`).value = '';
+            }
+        }
+    
+        function closeModal(section) {
+            document.getElementById(`${section}-modal`).style.display = 'none';
+        }
+    
+        function addOrEditCard(section) {
+            const name = document.getElementById(`${section}-name`).value;
+            const ip = document.getElementById(`${section}-ip`).value;
+            const action = document.getElementById(`${section}-action`).value;
+            const cardId = document.getElementById(`${section}-cardId`).value;
+    
+            if (name && ip) {
+                if (action === 'edit' && cardId) {
+                    localStorage.setItem(cardId, JSON.stringify({ name, ip }));
+                } else {
+                    const newCardId = `${section}-${Date.now()}`;
+                    localStorage.setItem(newCardId, JSON.stringify({ name, ip }));
+                }
+                renderCards(section);
+                closeModal(section);
+            } else {
+                alert('Please enter valid information.');
+            }
+        }
+    
+        function deleteCard(cardId) {
+            if (confirm('Are you sure you want to delete this card?')) {
+                localStorage.removeItem(cardId);
+                renderCards(cardId.split('-')[0]);
+            }
+        }
+    
+        function renderCards(section) {
+            const container = document.querySelector(`.${section} .container`);
+            container.innerHTML = '';
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith(section)) {
+                    const card = JSON.parse(localStorage.getItem(key));
+                    const cardElement = document.createElement('div');
+                    cardElement.className = 'card';
+                    cardElement.id = key;
+                    const cardHtml = section === 'camera'
+                        ? `
+                            <h3><i class="fas fa-video"></i> ${card.name}</h3>
+                            <div class="thumbnail" id="thumbnail-${card.name}" data-ip="${card.ip}">
+                                <div class="offline-status">OFFLINE</div>
+                                <div class="online-status">ONLINE</div>
+                            </div>
+                            <div class="controls">
+                                <button class="button" onclick="openCameraStream('${card.ip}', '${card.name}')">
+                                    <i class="fas fa-video"></i> Live Stream
+                                </button>
+                                <button class="button" onclick="openTimelapse('${card.ip}', '${card.name}')">
+                                    <i class="fas fa-clock"></i> Timelapse
+                                </button>
+                                <button class="edit-btn" onclick="openModal('camera', 'edit', '${key}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="delete-btn" onclick="deleteCard('${key}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        `
+                        : section === 'light'
+                        ? `
+                            <h3><i class="fas fa-lightbulb"></i> ${card.name}</h3>
+                            <div class="controls">
+                                <button class="button" onclick="toggleLight('${card.ip}')">
+                                    <i class="fas fa-power-off"></i> Toggle Light
+                                </button>
+                                <button class="edit-btn" onclick="openModal('light', 'edit', '${key}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="delete-btn" onclick="deleteCard('${key}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        `
+                        : section === 'temperature'
+                        ? `
+                            <h3><i class="fas fa-thermometer-half"></i> ${card.name}</h3>
+                            <p>Current Temperature: <span id="temperature-${key.replace(/\./g, '-').replace(/:/g, '-')}" data-ip="${card.ip}">Loading...</span></p>
+                            <div class="controls">
+                                <button class="edit-btn" onclick="openModal('temperature', 'edit', '${key}')">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="delete-btn" onclick="deleteCard('${key}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        `
+                        : '';
+                    cardElement.innerHTML = cardHtml;
+                    container.appendChild(cardElement);
+                    // 썸네일 로딩 후 상태 업데이트
+                    if (section === 'camera') {
+                        const thumbnail = document.getElementById(`thumbnail-${card.name}`);
+                        if (thumbnail) {
+                            const img = new Image();
+                            img.onload = () => {
+                                thumbnail.style.backgroundImage = `url('http://${card.ip}/getthumb?session_id=${card.name}')`;
+                                thumbnail.querySelector('.offline-status').style.display = 'none';
+                                thumbnail.querySelector('.online-status').style.display = 'block';
+                            };
+                            img.onerror = () => {
+                                thumbnail.style.backgroundImage = `url('./default.png')`;
+                                thumbnail.querySelector('.offline-status').style.display = 'block';
+                                thumbnail.querySelector('.online-status').style.display = 'none';
+                            };
+                            img.src = `http://${card.ip}/getthumb?session_id=${card.name}`;
+                        }
+                    } else if (section === 'temperature') {
+                        // 온도 데이터 로딩
+                        fetch(`http://${card.ip}/gettemperature`)
+                            .then(response => response.json())
+                            .then(data => {
+                                document.getElementById(`temperature-${key.replace(/\./g, '-').replace(/:/g, '-')}`).textContent = `${data.temperature}°C`;
+                            })
+                            .catch(() => {
+                                document.getElementById(`temperature-${key.replace(/\./g, '-').replace(/:/g, '-')}`).textContent = 'Error fetching data';
+                            });
+                    }
+                }
+            }
+        }
+    
+        function openCameraStream(ip, name) {
+            location.href = (`./camera.html?ip=${ip}&name=${name}`);
+        }
+    
+        function openTimelapse(ip, name) {
+            location.href = (`./timelapse.html?ip=${ip}&name=${name}`);
+        }
+    
+        function toggleLight(ip) {
+            fetch(`http://${ip}/togglelight`)
+                .then(response => response.json())
+                .then(data => alert(`Light toggled: ${data.status}`));
+        }
+    
+        function fetchSessionAndRenderCards() {
+            fetch(`${baseUrl}/activated`)
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(session => {
+                        const cardId = `camera-${session.session_id}`;
+                        localStorage.setItem(cardId, JSON.stringify({
+                            name: `${session.session_id}`,
+                            ip: `${session.server_ip}`
+                        }));
+                    });
+                    renderCards('camera');
+                })
+                .catch(error => console.error('Error fetching session:', error));
+        }
+
+        function openSettingsModal() {
+            document.getElementById('settings-modal').style.display = 'flex';
+            document.getElementById('base-url').value = baseUrl; // 현재 baseUrl을 모달에 채우기
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').style.display = 'none';
+        }
+
+        function saveBaseUrl() {
+            baseUrl = document.getElementById('base-url').value;
+            localStorage.setItem('base_url', baseUrl); // base_url을 localStorage에 저장
+            closeSettingsModal();
+            fetchSessionAndRenderCards();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchSessionAndRenderCards();
+            renderCards('light');
+            renderCards('temperature');
+        });
+    </script>
+</head>
+<body>
+    <header>
+        Smart Aquarium Dashboard
+        <i class="fas fa-cog header-icon" onclick="openSettingsModal()"></i>
+    </header>
+
+    <div class="section camera">
+        <div class="section-header">
+            <h2><i class="fas fa-video"></i> Camera List</h2>
+            <button class="add-card-btn" onclick="openModal('camera', 'add')"><i class="fas fa-plus"></i></button>
+        </div>
+        <div class="container"></div>
+    </div>
+
+    <div class="section light">
+        <div class="section-header">
+            <h2><i class="fas fa-lightbulb"></i> Light List</h2>
+            <button class="add-card-btn" onclick="openModal('light', 'add')"><i class="fas fa-plus"></i></button>
+        </div>
+        <div class="container"></div>
+    </div>
+
+    <div class="section temperature">
+        <div class="section-header">
+            <h2><i class="fas fa-thermometer-half"></i> Temperature List</h2>
+            <button class="add-card-btn" onclick="openModal('temperature', 'add')"><i class="fas fa-plus"></i></button>
+        </div>
+        <div class="container"></div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div id="camera-modal" class="modal">
+        <div class="modal-content">
+            <input type="text" id="camera-name" placeholder="Camera Name">
+            <input type="text" id="camera-ip" placeholder="Camera IP">
+            <input type="hidden" id="camera-action">
+            <input type="hidden" id="camera-cardId">
+            <button class="button" onclick="addOrEditCard('camera')">Save</button>
+            <button class="button" onclick="closeModal('camera')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Light Modal -->
+    <div id="light-modal" class="modal">
+        <div class="modal-content">
+            <input type="text" id="light-name" placeholder="Light Name">
+            <input type="text" id="light-ip" placeholder="Light IP">
+            <input type="hidden" id="light-action">
+            <input type="hidden" id="light-cardId">
+            <button class="button" onclick="addOrEditCard('light')">Save</button>
+            <button class="button" onclick="closeModal('light')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Temperature Modal -->
+    <div id="temperature-modal" class="modal">
+        <div class="modal-content">
+            <input type="text" id="temperature-name" placeholder="Temperature Sensor Name">
+            <input type="text" id="temperature-ip" placeholder="Temperature Sensor IP">
+            <input type="hidden" id="temperature-action">
+            <input type="hidden" id="temperature-cardId">
+            <button class="button" onclick="addOrEditCard('temperature')">Save</button>
+            <button class="button" onclick="closeModal('temperature')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <input type="text" id="base-url" placeholder="Base URL">
+            <button class="button" onclick="saveBaseUrl()">Save</button>
+            <button class="button" onclick="closeSettingsModal()">Cancel</button>
+        </div>
+    </div>
+</body>
+</html>

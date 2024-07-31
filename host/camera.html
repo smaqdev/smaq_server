@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Camera Stream</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden; /* Prevent scrolling */
+        }
+        header {
+            background-color: #82c1e4;
+            color: white;
+            padding: 20px;
+            width: 100%;
+            text-align: center;
+            font-size: 24px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 1200px; /* Maximum width to ensure large screens don't get too wide */
+            height: 80vh; /* Set height to 80% of viewport height */
+            background-color: #000;
+            overflow: hidden;
+            border-radius: 8px; /* Slightly rounded corners */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain; /* Preserve aspect ratio of the image */
+        }
+        .controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .fullscreen-button {
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            padding: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+        .fullscreen-button:hover {
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+        .back-button {
+            background-color: #82c1e4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .back-button i {
+            margin-right: 8px;
+        }
+        .back-button:hover {
+            background-color: #659dbd;
+        }
+    </style>
+    <script>
+        function toggleFullscreen() {
+            const container = document.querySelector('.container');
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                container.requestFullscreen();
+            }
+        }
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const ip = urlParams.get('ip');
+            const name = urlParams.get('name');
+            if (!ip) {
+                alert('No IP address provided.');
+                return;
+            }
+
+            const img = document.createElement('img');
+            img.src = `http://${ip}/video_feed.mjpg?session_id=${name}`;
+            img.alt = 'MJPEG Stream';
+            document.querySelector('.container').appendChild(img);
+        };
+
+        function goBack() {
+            window.history.back();
+        }
+    </script>
+</head>
+<body>
+    <header>Live Camera Stream</header>
+    <div class="container">
+        <!-- Image will be added dynamically by JavaScript -->
+        <div class="controls">
+            <button class="fullscreen-button" onclick="toggleFullscreen()">
+                <i class="fas fa-expand"></i>
+            </button>
+        </div>
+    </div>
+    <button class="back-button" onclick="goBack()">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+    </button>
+</body>
+</html>

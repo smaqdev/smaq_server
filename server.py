@@ -12,7 +12,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
-IP = "100.74.237.67" # vpn ip
+IP = "100.105.43.90" # vpn ip
 httpPort = 5000
 socketPort = 8765
 
@@ -95,7 +95,7 @@ def get_thumbnail():
 
 @app.route('/')
 def serve_index():
-    return send_file('index.html')
+    return send_file('/host/index.html')
 
 @app.route('/timelapse_video/update')
 def timelapse_video_update():
