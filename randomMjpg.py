@@ -59,7 +59,7 @@ async def send_video_frames(ws_uri, video_path):
             video_clip = VideoFileClip(video_path)
 
 async def main():
-    server_uri = 'ws://127.0.0.1:8765/testsession'
+    server_uri = 'ws://100.105.43.90:8765/testsession'
     video_path = 'sample.mp4'
     await send_video_frames(server_uri, video_path)
 

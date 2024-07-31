@@ -71,6 +71,7 @@ def video_feed():
                        b'Content-Type:image/jpeg\r\n'
                        b'Content-Length: ' + f"{frameLen}".encode() + b'\r\n'
                        b'\r\n' + session.latest_frame + b'\r\n')
+                print("send")
             else:
                 time.sleep(0.1)  # Reduce CPU usage when no frame is available
 
@@ -168,6 +169,7 @@ async def handle_client(websocket, path):
         async for message in websocket:
             session.latest_frame = message
             session.last_received_time = datetime.now()
+            print("recv")
     finally:
         print(f"Client disconnected for session {session_id}.")
 
