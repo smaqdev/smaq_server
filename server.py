@@ -184,6 +184,7 @@ async def start_websocket_server():
         await asyncio.Future()  # Run forever
 
 def save_images():
+    global sendCount, recvCount
     while not shutdown_event.is_set():
         time.sleep(10)  # Save images every 10 seconds
         for session_id, session in list(sessions.items()):
@@ -203,6 +204,8 @@ def save_images():
                 print(f"Saved image to {file_path} for session {session_id}")
         print(f'send_frame : {sendCount}, recv_frame : {recvCount}')
         print(f'send_frame/s : {sendCount/10}, recv_frame/s : {recvCount/10}')
+        sendCount = 0
+        recvCount = 0
 
 def run_servers():
     loop = asyncio.new_event_loop()
