@@ -11,19 +11,10 @@ from PIL import Image, ImageDraw, ImageFont
 import os
 import time
 from datetime import datetime, timedelta
-from gevent.pywsgi import WSGIServer
-from gevent import monkey
-import logging
 
-monkey.patch_all()
-
-IP = "127.0.0.1"  # VPN IP
+IP = "127.0.0.1" # vpn ip
 httpPort = 5000
 socketPort = 8765
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS
@@ -72,19 +63,18 @@ def video_feed():
     session_id = request.args.get('session_id')
     if not session_id:
         return Response("Session ID is required", status=400)
-
-    def generate():
+    session = sessions.get(session_id)
+    def generate(frameLen):
         while True:
-            session = sessions.get(session_id)
-            if session and session.latest_frame:
+            if frameLen > 0:
                 yield (b'--frame\r\n'
                        b'Content-Type:image/jpeg\r\n'
-                       b'Content-Length: ' + f"{len(session.latest_frame)}".encode() + b'\r\n'
+                       b'Content-Length: ' + f"{frameLen}".encode() + b'\r\n'
                        b'\r\n' + session.latest_frame + b'\r\n')
             else:
                 time.sleep(0.1)  # Reduce CPU usage when no frame is available
 
-    return Response(generate(),
+    return Response(generate(len(session.latest_frame)),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/getthumb')
@@ -131,7 +121,6 @@ def timelapse_video_update():
     try:
         subprocess.run(['python', 'tl.py', session.img_dir, session.timelapse_video_path], check=True)
     except subprocess.CalledProcessError as e:
-        logger.error(f"Error occurred while generating video: {str(e)}")
         return Response(f"Error occurred while generating video: {str(e)}", status=500)
     
     return Response("OK", status=200)
@@ -168,7 +157,7 @@ def get_activated_sessions():
 
 async def handle_client(websocket, path):
     session_id = path.strip('/')
-    logger.info(f"Client connected for session {session_id}.")
+    print(f"Client connected for session {session_id}.")
     
     if session_id not in sessions:
         sessions[session_id] = Session(session_id)
@@ -180,11 +169,11 @@ async def handle_client(websocket, path):
             session.latest_frame = message
             session.last_received_time = datetime.now()
     finally:
-        logger.info(f"Client disconnected for session {session_id}.")
+        print(f"Client disconnected for session {session_id}.")
 
 async def start_websocket_server():
     async with websockets.serve(handle_client, IP, socketPort):
-        logger.info(f"WebSocket server started on ws://{IP}:{socketPort}")
+        print(f"WebSocket server started on ws://{IP}:{socketPort}")
         await asyncio.Future()  # Run forever
 
 def save_images():
@@ -194,7 +183,7 @@ def save_images():
             if datetime.now() - session.last_received_time > timedelta(minutes=10):
                 # Remove session if no new frame received in the last 10 minutes
                 del sessions[session_id]
-                logger.info(f"Session {session_id} removed due to inactivity.")
+                print(f"Session {session_id} removed due to inactivity.")
                 continue
             
             if session.latest_frame:
@@ -204,7 +193,7 @@ def save_images():
                 file_path = os.path.join(session.img_dir, f'image_{timestamp}.jpg')
                 with open(file_path, 'wb') as file:
                     file.write(watermarked_frame)
-                logger.info(f"Saved image to {file_path} for session {session_id}")
+                print(f"Saved image to {file_path} for session {session_id}")
 
 def run_servers():
     loop = asyncio.new_event_loop()
@@ -217,15 +206,11 @@ def run_servers():
     # Start image saving in a separate thread
     threading.Thread(target=save_images, daemon=True).start()
     
-    # Start Flask HTTP server with Gevent
-    http_server = WSGIServer((IP, httpPort), app)
+    # Start Flask HTTP server
     try:
-        logger.info(f"Starting HTTP server on http://{IP}:{httpPort}")
-        http_server.serve_forever()
-    except Exception as e:
-        logger.error(f"HTTP server encountered an error: {str(e)}")
+        app.run(host=IP, port=httpPort, use_reloader=False)
     except KeyboardInterrupt:
-        logger.info("Server is shutting down...")
+        print("Server is shutting down...")
         shutdown_event.set()
         loop.call_soon_threadsafe(loop.stop)
 

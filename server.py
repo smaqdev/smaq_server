@@ -12,7 +12,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
-IP = "100.105.43.90" # vpn ip
+IP = "127.0.0.1" # vpn ip
 httpPort = 5000
 socketPort = 8765
 

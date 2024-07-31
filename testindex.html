@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Receive Test</title>
+    <style>
+        #imageDisplay {
+            max-width: 100%;
+            max-height: 80vh;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Receive Test</h1>
+    <p>Received images will be displayed below:</p>
+    <img id="imageDisplay" src="" alt="Received Image" />
+
+    <script>
+        const socketUrl = 'ws://127.0.0.1:8765/testsession'; // 여기에 WebSocket 서버 URL과 세션 ID를 입력하세요
+        const ws = new WebSocket(socketUrl);
+        const imageElement = document.getElementById('imageDisplay');
+
+        ws.binaryType = 'arraybuffer'; // 서버로부터 수신할 데이터 유형을 설정
+
+        ws.onopen = () => {
+            console.log('Connected to WebSocket server.');
+        };
+
+        ws.onmessage = (event) => {
+            if (event.data instanceof ArrayBuffer) {
+                // ArrayBuffer를 Blob으로 변환
+                const blob = new Blob([event.data], { type: 'image/jpeg' });
+                const url = URL.createObjectURL(blob);
+                
+                // Blob URL을 이미지 소스로 설정
+                imageElement.src = url;
+            }
+        };
+
+        ws.onclose = () => {
+            console.log('Disconnected from WebSocket server.');
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+    </script>
+</body>
+</html>
