@@ -63,12 +63,12 @@ def add_watermark(image_bytes):
 
 @app.route('/video_feed.mjpg')
 def video_feed():
-    global sendCount
     session_id = request.args.get('session_id')
     if not session_id:
         return Response("Session ID is required", status=400)
     session = sessions.get(session_id)
     def generate(frameLen):
+        global sendCount
         while True:
             if frameLen > 0:
                 yield (b'--frame\r\n'
