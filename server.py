@@ -63,6 +63,7 @@ def add_watermark(image_bytes):
 
 @app.route('/video_feed.mjpg')
 def video_feed():
+    global sendCount
     session_id = request.args.get('session_id')
     if not session_id:
         return Response("Session ID is required", status=400)
@@ -160,6 +161,7 @@ def get_activated_sessions():
     return jsonify(active_sessions)
 
 async def handle_client(websocket, path):
+    global recvCount
     session_id = path.strip('/')
     print(f"Client connected for session {session_id}.")
     
