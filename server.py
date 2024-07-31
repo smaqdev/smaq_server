@@ -16,6 +16,9 @@ IP = "100.105.43.90" # vpn ip
 httpPort = 5000
 socketPort = 8765
 
+sendCount = 0
+recvCount = 0
+
 app = Flask(__name__)
 CORS(app)  # Enable CORS
 
@@ -71,7 +74,7 @@ def video_feed():
                        b'Content-Type:image/jpeg\r\n'
                        b'Content-Length: ' + f"{frameLen}".encode() + b'\r\n'
                        b'\r\n' + session.latest_frame + b'\r\n')
-                print("send")
+                sendCount+=1
             else:
                 time.sleep(0.1)  # Reduce CPU usage when no frame is available
 
@@ -169,7 +172,7 @@ async def handle_client(websocket, path):
         async for message in websocket:
             session.latest_frame = message
             session.last_received_time = datetime.now()
-            print("recv")
+            recvCount+=1
     finally:
         print(f"Client disconnected for session {session_id}.")
 
@@ -196,6 +199,8 @@ def save_images():
                 with open(file_path, 'wb') as file:
                     file.write(watermarked_frame)
                 print(f"Saved image to {file_path} for session {session_id}")
+        print(f'send_frame : {sendCount}, recv_frame : {recvCount}')
+        print(f'send_frame/s : {sendCount/10}, recv_frame/s : {recvCount/10}')
 
 def run_servers():
     loop = asyncio.new_event_loop()
