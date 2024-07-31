@@ -12,7 +12,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
-IP = "100.105.43.90" # vpn ip
+IP = "127.0.0.1" # vpn ip
 httpPort = 5000
 socketPort = 8765
 
@@ -63,19 +63,18 @@ def video_feed():
     session_id = request.args.get('session_id')
     if not session_id:
         return Response("Session ID is required", status=400)
-
-    def generate():
+    session = sessions.get(session_id)
+    def generate(frameLen):
         while True:
-            session = sessions.get(session_id)
-            if session and session.latest_frame:
+            if frameLen > 0:
                 yield (b'--frame\r\n'
                        b'Content-Type:image/jpeg\r\n'
-                       b'Content-Length: ' + f"{len(session.latest_frame)}".encode() + b'\r\n'
+                       b'Content-Length: ' + f"{frameLen}".encode() + b'\r\n'
                        b'\r\n' + session.latest_frame + b'\r\n')
             else:
                 time.sleep(0.1)  # Reduce CPU usage when no frame is available
 
-    return Response(generate(),
+    return Response(generate(len(session.latest_frame)),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/getthumb')
