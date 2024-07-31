@@ -97,7 +97,7 @@ def get_thumbnail():
 def serve_index():
     return send_file('index.html')
 
-@app.route('/camera')
+@app.route('/camera.html')
 def serve_stream():
     return send_file('camera.html')
 
